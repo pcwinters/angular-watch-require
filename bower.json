@@ -1,0 +1,29 @@
+{
+  "name": "angular-watch-require",
+  "version": "0.0.1",
+  "main": "dist/watchRequire.js",
+  "ignore": [
+    "src",
+    "test",
+    "**/.*",
+    "bower_components",
+    "node_modules"
+  ],
+  "dependencies": {
+    "lodash": "~2",
+    "angular": "~1.3",
+    "angular-mocks": "~1.3"
+  },
+  "license": "MIT",
+  "keywords": [
+    "angular",
+    "watch",
+    "performance"
+  ],
+  "authors": [
+    "Patrick Winters <pwinters@rallydev.com>"
+  ],
+  "homepage": "https://github.com/pcw216/angular-watch-require",
+  "repository": "git@github.com:pcw216/angular-watch-require.git",
+  "description": "reduce, reuse, require $watch's"
+}
