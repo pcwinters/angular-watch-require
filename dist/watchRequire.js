@@ -18,13 +18,18 @@
     });
   };
 
-  angular.module('ngWatchRequire', []).constant('ngWatchRequireRegEx', /^(\?\^|\?|\^)([^\:]+)$/).config(function($provide) {
+  angular.module('ngWatchRequire', []).constant('ngWatchRequireRegEx', /^(\?\^|\?|\^)([^\:]+)$/).value('ngWatchRequireCloneExpression', function(getter) {
+    var clone;
+    clone = function() {
+      return getter.apply(this, arguments);
+    };
+    return _.merge(clone, getter);
+  }).config(function($provide) {
     $provide.decorator('$parse', function($delegate) {
       return _.wrap($delegate, function() {
         var $parse, args, expression, str;
         $parse = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
         str = _.first(args);
-        console.log('parsing expression', str);
         expression = $parse.apply(this, args);
         if (angular.isString(str)) {
           expression.$$expression = str.trim();
@@ -32,32 +37,26 @@
         return expression;
       });
     });
-    return $provide.decorator('$parse', function($delegate, ngWatchRequireRegEx, ngWatchRequire) {
+    return $provide.decorator('$parse', function($delegate, ngWatchRequireRegEx, ngWatchRequire, ngWatchRequireCloneExpression) {
       return _.wrap($delegate, function($parse, exp, interceptor) {
         var args, expression, match, requireType, str, unparsed;
         if (angular.isString(exp) && (match = exp.match(ngWatchRequireRegEx))) {
-          console.log('matched', exp, match);
           unparsed = match[0], requireType = match[1], str = match[2];
           str = str.trim();
           args = [str];
           if (interceptor) {
             args.push(interceptor);
           }
-          expression = $parse.apply(this, args);
+          expression = ngWatchRequireCloneExpression($parse.apply(this, args));
           expression.$$watchDelegate = ngWatchRequire.delegateFactory(requireType, expression);
           expression.$$requireType = requireType;
           return expression;
         } else {
-          console.log('no match, passthrough', exp);
           args = [exp];
           if (interceptor != null) {
             args.push(interceptor);
           }
-          expression = $parse.apply(this, args);
-          delete expression.$$requireType;
-          delete expression.$$watchDelegate;
-          console.log('passed through require type is', expression.$$requireType);
-          return expression;
+          return $parse.apply(this, args);
         }
       });
     });
@@ -119,7 +118,6 @@
 
     NgWatchRequire.prototype.createMultiListener = function(scope, expressionStr, objectEquality) {
       var multiListener, watcher;
-      console.log('create new multiListener', expressionStr, objectEquality);
       multiListener = new this.ngWatchRequireMultiListener(expressionStr, objectEquality);
       multiListener.deregister = scope.$watch(expressionStr, multiListener.onChange, objectEquality);
       watcher = _.first(scope.$$watchers);
@@ -139,7 +137,6 @@
           return ((_ref = w.$multiListener) != null ? _ref.expression : void 0) === expressionStr && ((_ref1 = w.$multiListener) != null ? _ref1.objectEquality : void 0) === objectEquality;
         });
         scope = scope.$parent;
-        console.log('found watcher', watcher);
         if (!((watcher == null) && climbParent && (scope != null))) {
           break;
         }
@@ -148,15 +145,9 @@
     };
 
     NgWatchRequire.prototype.delegateFactory = function(requireType, expression) {
-      console.log('wrapping expression.$$watchDelegate', expression.$$watchDelegate);
       return _.wrap(expression.$$watchDelegate, (function(_this) {
         return function(originalDelegate, scope, listener, objectEquality, parsedExpression) {
           var expressionStr, multiListener, options;
-          console.log('in delegate', requireType, parsedExpression.$$requireType, expression.$$watchDelegate);
-          if (requireType !== parsedExpression.$$requireType) {
-            return originalDelegate.apply(null, args.slice(1));
-          }
-          console.log('delegate factory', parsedExpression.$$expression, objectEquality);
           options = (function() {
             switch (requireType) {
               case '?':
@@ -176,7 +167,6 @@
           })();
           expressionStr = parsedExpression.$$expression;
           multiListener = _this.findMultiListener(scope, expressionStr, objectEquality, options.climbParent);
-          console.log('created multi listener');
           if (multiListener == null) {
             if (!options.createIfNeeded) {
               throw new Error("ngWatchRequire: Expression " + expressionStr + " requires an existing $watch but none was found.");
